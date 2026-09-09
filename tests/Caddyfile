@@ -1,0 +1,11 @@
+{
+	# Keep the test CA inside the disposable Caddy data volume.
+	skip_install_trust
+}
+
+forgejo.test {
+	# This integration test must never request a public ACME certificate.
+	tls internal
+	encode zstd gzip
+	reverse_proxy forgejo:3000
+}

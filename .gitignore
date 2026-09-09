@@ -1,0 +1,30 @@
+.env
+.env.*
+!.env.example
+
+# Deployment credentials, data, and local overrides
+secrets/
+data/
+forgejo/
+postgres/
+caddy/data/
+caddy/config/
+backups/
+compose.override.yaml
+compose.override.yml
+docker-compose.override.yaml
+docker-compose.override.yml
+*.pem
+*.key
+*.dump
+*.sql
+*.sqlite*
+*.db
+*.tar
+*.tar.gz
+*.tgz
+
+# Local tooling
+__pycache__/
+*.py[cod]
+.DS_Store

@@ -1,0 +1,113 @@
+name: forgejo
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  caddy:
+    image: caddy:2.11.4-alpine
+    restart: unless-stopped
+    environment:
+      FORGEJO_DOMAIN: ${FORGEJO_DOMAIN:?Set FORGEJO_DOMAIN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env}
+      ACME_CA: ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./caddy:/etc/caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - proxy
+    depends_on:
+      forgejo:
+        condition: service_healthy
+    logging: *default-logging
+
+  forgejo:
+    # Standard image: its OpenSSH server listens on container port 22.
+    image: codeberg.org/forgejo/forgejo:15.0.7
+    restart: unless-stopped
+    environment:
+      USER_UID: "1000"
+      USER_GID: "1000"
+      FORGEJO__database__DB_TYPE: postgres
+      FORGEJO__database__HOST: db:5432
+      FORGEJO__database__NAME: forgejo
+      FORGEJO__database__USER: forgejo
+      FORGEJO__database__PASSWD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      FORGEJO__database__SSL_MODE: disable
+      # Caddy terminates TLS; HTTP stays on the private Docker network.
+      FORGEJO__server__DOMAIN: ${FORGEJO_DOMAIN:?Set FORGEJO_DOMAIN in .env}
+      FORGEJO__server__ROOT_URL: https://${FORGEJO_DOMAIN:?Set FORGEJO_DOMAIN in .env}/
+      FORGEJO__server__PROTOCOL: http
+      FORGEJO__server__HTTP_ADDR: 0.0.0.0
+      FORGEJO__server__HTTP_PORT: "3000"
+      FORGEJO__server__SSH_DOMAIN: ${FORGEJO_DOMAIN:?Set FORGEJO_DOMAIN in .env}
+      FORGEJO__server__SSH_PORT: "22"
+      FORGEJO__server__DISABLE_SSH: "false"
+      FORGEJO__server__START_SSH_SERVER: "false"
+      FORGEJO__server__LFS_START_SERVER: "true"
+      # Skip the public installer. Create the first admin using the CLI.
+      FORGEJO__security__INSTALL_LOCK: "true"
+      FORGEJO__service__DISABLE_REGISTRATION: ${DISABLE_REGISTRATION:-true}
+      FORGEJO__session__COOKIE_SECURE: "true"
+      # Trust one proxy hop on the private bridge networks only.
+      # Keep the proxy network exclusive to Caddy and Forgejo.
+      FORGEJO__security__REVERSE_PROXY_LIMIT: "1"
+      FORGEJO__security__REVERSE_PROXY_TRUSTED_PROXIES: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fd00::/8"
+    ports:
+      - "22:22"
+    volumes:
+      - forgejo_data:/data
+    networks:
+      - proxy
+      - database
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:3000/api/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    stop_grace_period: 60s
+    logging: *default-logging
+
+  db:
+    image: postgres:17.11-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: forgejo
+      POSTGRES_DB: forgejo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - database
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    shm_size: 128mb
+    stop_grace_period: 60s
+    logging: *default-logging
+
+networks:
+  proxy:
+  database:
+    internal: true
+
+volumes:
+  forgejo_data:
+  postgres_data:
+  caddy_data:
+  caddy_config:

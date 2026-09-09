@@ -1,0 +1,30 @@
+# Requires Docker Compose 2.24.4+ for !override.
+# Paths are relative to the production compose.yaml at the project root.
+services:
+  caddy:
+    ports: !override
+      - target: 443
+        published: "0"
+        host_ip: 127.0.0.1
+        protocol: tcp
+    volumes: !override
+      - ./tests/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  forgejo:
+    ports: !override
+      - target: 22
+        published: "0"
+        host_ip: 127.0.0.1
+        protocol: tcp
+    healthcheck:
+      interval: 2s
+      start_period: 10s
+      retries: 60
+
+  db:
+    healthcheck:
+      interval: 2s
+      start_period: 5s
+      retries: 60

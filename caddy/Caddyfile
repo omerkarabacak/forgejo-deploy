@@ -1,0 +1,15 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$FORGEJO_DOMAIN} {
+	# Explicit issuer: use Let's Encrypt for issuance and automatic renewal.
+	tls {
+		issuer acme {
+			dir {$ACME_CA}
+		}
+	}
+
+	encode zstd gzip
+	reverse_proxy forgejo:3000
+}

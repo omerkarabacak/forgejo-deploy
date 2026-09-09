@@ -1,0 +1,54 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  configuration:
+    name: Configuration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Validate deployment configuration
+        run: python3 scripts/validate.py
+      - name: Check smoke-test syntax
+        run: bash -n scripts/smoke-test.sh
+      - name: Validate production Caddyfile without issuing certificates
+        env:
+          FORGEJO_DOMAIN: forgejo.example.com
+          ACME_EMAIL: ci@example.invalid
+          POSTGRES_PASSWORD: disposable-validation-value
+        run: |
+          docker compose --env-file /dev/null -f compose.yaml --project-name forgejo-config-check run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+      - name: Clean up configuration-check volumes
+        if: always()
+        env:
+          FORGEJO_DOMAIN: forgejo.example.com
+          ACME_EMAIL: ci@example.invalid
+          POSTGRES_PASSWORD: disposable-validation-value
+        run: docker compose --env-file /dev/null -f compose.yaml --project-name forgejo-config-check down --volumes
+
+  smoke:
+    name: Container smoke test
+    needs: configuration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Verify startup, administrator creation, HTTPS, and SSH listener
+        run: bash scripts/smoke-test.sh
