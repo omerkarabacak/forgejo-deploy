@@ -4,6 +4,7 @@
 
 # Deployment credentials, data, and local overrides
 secrets/
+runner/state/
 data/
 forgejo/
 postgres/

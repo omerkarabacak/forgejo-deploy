@@ -1,0 +1,55 @@
+name: forgejo-runner
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  docker:
+    image: docker:29.8.0-dind
+    restart: unless-stopped
+    privileged: true
+    command: ["dockerd", "--host=unix:///var/run/docker.sock", "--group=root"]
+    environment:
+      DOCKER_TLS_CERTDIR: ""
+    volumes:
+      - docker_data:/var/lib/docker
+      - docker_socket:/var/run
+    cpus: 3
+    mem_limit: 5g
+    healthcheck:
+      test: ["CMD", "docker", "info"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    logging: *logging
+
+  runner:
+    image: data.forgejo.org/forgejo/runner:13.0.0
+    restart: unless-stopped
+    user: "1000:1000"
+    group_add: ["0"]
+    working_dir: /data
+    # Share the DinD network namespace so nested jobs can reach the cache.
+    network_mode: service:docker
+    depends_on:
+      docker:
+        condition: service_healthy
+        restart: true
+    environment:
+      DOCKER_HOST: unix:///var/run/docker.sock
+    command: ["forgejo-runner", "daemon", "--config", "/data/config.yml"]
+    volumes:
+      - ./state:/data
+      - docker_socket:/var/run
+    cpus: 0.5
+    mem_limit: 512m
+    stop_grace_period: 2m
+    logging: *logging
+
+volumes:
+  docker_data:
+  docker_socket:

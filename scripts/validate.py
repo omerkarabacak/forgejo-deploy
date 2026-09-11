@@ -131,7 +131,8 @@ def repository_files():
         path = Path(name)
         require(not (path.name.startswith(".env") and path.name != ".env.example")
                 and path.suffix not in {".pem", ".key", ".dump", ".sql", ".db"}
-                and not ({"backups", "secrets", "data"} & set(path.parts)),
+                and not ({"backups", "secrets", "data"} & set(path.parts))
+                and path.parts[:2] != ("runner", "state"),
                 f"Deployment data or credentials must not be tracked: {name}")
         local = ROOT / path
         if local.is_file():
@@ -140,8 +141,33 @@ def repository_files():
     print("PASS: No tracked deployment files or private keys (basic guard, not a full secret scan)")
 
 
+def runner_configuration():
+    result = subprocess.run(
+        ["docker", "compose", "--env-file", os.devnull,
+         "-f", "runner/compose.yaml", "config", "--format", "json"],
+        cwd=ROOT, capture_output=True, text=True, timeout=30,
+    )
+    require(result.returncode == 0, "Runner Compose validation failed: " + result.stderr)
+    services = json.loads(result.stdout)["services"]
+    require(set(services) == {"docker", "runner"}, "Unexpected runner services")
+    for name, service in services.items():
+        require(not service.get("ports"), f"Runner service {name} must not expose host ports")
+        for mount in service.get("volumes", []):
+            require(mount["type"] != "bind" or mount["target"] == "/data",
+                    "Runner must not bind-mount the host Docker socket or host directories")
+    require(services["runner"]["network_mode"] == "service:docker",
+            "Runner cache requires the DinD network namespace")
+    require(services["runner"]["user"] == "1000:1000"
+            and not services["runner"].get("privileged", False),
+            "Runner process must run without root privileges")
+    require(int(services["docker"]["mem_limit"]) <= 5 * 1024**3,
+            "DinD must leave memory for the Forgejo stack")
+    print("PASS: Optional runner ports, Docker isolation, and resource bounds")
+
+
 def main():
     configuration()
+    runner_configuration()
     repository_files()
 
 

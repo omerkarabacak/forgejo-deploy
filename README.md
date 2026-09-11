@@ -108,8 +108,10 @@ repositories, uploads, LFS objects, configuration, and SSH host keys. **A comple
 backup needs both.** SSH authorizes Git operations and does not give users a host
 shell. Its keys are separate from the HTTPS certificate.
 
-Image upgrades are manual; certificate renewal is automatic. SMTP, Actions
-runners, and a scheduled off-server backup system are not included.
+Image upgrades are manual; certificate renewal is automatic. An optional
+[Docker Actions runner](docs/actions-runner.md) is provided as a separate Compose
+project, with its own Docker engine and repository registration. SMTP and a
+scheduled off-server backup system are not included.
 
 See the [operations guide](docs/operations.md) for:
 
