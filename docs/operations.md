@@ -198,3 +198,40 @@ recreated. If testing ACME repeatedly, select the staging endpoint in `.env`;
 staging certificates are deliberately untrusted. Switch back to the production
 endpoint and recreate Caddy for the real installation. Caddy configuration
 validation alone does not prove public DNS reachability or issue a certificate.
+
+### Upgrading from Forgejo 15 to 16
+
+The template pins Forgejo **16.0.4**, a stable release supported until
+29 October 2026. This is a major upgrade from the previous 15.0.7 LTS pin.
+Review the [16.0 announcement](https://forgejo.org/2026-07-release-v16-0/)
+and [16.0.4 release notes](https://codeberg.org/forgejo/forgejo/src/branch/forgejo/release-notes-published/16.0.4.md).
+
+Let active Actions jobs finish, pause the runner, and flush the server queues:
+
+```sh
+docker compose -f runner/compose.yaml stop runner # If the optional runner is installed.
+docker compose exec --user git forgejo forgejo --config /data/gitea/conf/app.ini manager flush-queues --timeout 5m
+```
+
+Then stop Forgejo and take the complete backup described above. Keep the old
+Compose configuration with that backup. Pull and start only the Forgejo service
+after updating its image tag:
+
+```sh
+docker compose pull forgejo
+docker compose up -d --no-deps --wait --wait-timeout 180 forgejo
+docker compose exec --user git forgejo forgejo --config /data/gitea/conf/app.ini doctor check --all --log-file /tmp/forgejo-doctor.log
+docker compose -f runner/compose.yaml start runner # If installed and stopped above.
+```
+
+The database migrates during startup. A rollback requires restoring the matching
+database dump and Forgejo data backup with the old image; changing the image tag
+back alone is not a safe downgrade.
+
+The template already sets explicit trusted proxy networks, as required by the
+new container defaults. HTTP mirrors must use their final URL because redirects
+are no longer followed. Review scheduled workflows that use `forgejo.ref` and
+API integrations that consume a pull request's `url` field, whose behavior was
+corrected in version 16. Existing repository hooks can remain in place; upstream's
+hook-file cleanup is optional. Repeat authenticated Git push/clone, HTTPS, and an
+Actions job after upgrading.

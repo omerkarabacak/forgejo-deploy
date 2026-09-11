@@ -98,9 +98,15 @@ including checking the SSH host key fingerprint, before cloning a repository.
 
 | Component | Pinned image |
 | --- | --- |
-| Forgejo | `codeberg.org/forgejo/forgejo:15.0.7` (LTS) |
+| Forgejo | `codeberg.org/forgejo/forgejo:16.0.4` (stable) |
 | PostgreSQL | `postgres:17.11-alpine` |
 | Caddy | `caddy:2.11.4-alpine` |
+
+Forgejo 16 is the current stable series, supported until **29 October 2026**.
+It follows the regular release cycle; Forgejo 15 is the separate LTS series.
+For an existing installation, read the [15-to-16 upgrade notes](docs/operations.md#upgrading-from-forgejo-15-to-16)
+before replacing the image. See the [upstream releases](https://forgejo.org/releases/)
+for the current support status.
 
 Forgejo provides repositories, permissions, issues, pull requests, and releases.
 PostgreSQL stores application metadata; Forgejo's `/data` volume stores Git
