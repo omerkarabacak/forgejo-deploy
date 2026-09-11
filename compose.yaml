@@ -31,7 +31,7 @@ services:
 
   forgejo:
     # Standard image: its OpenSSH server listens on container port 22.
-    image: codeberg.org/forgejo/forgejo:15.0.7
+    image: codeberg.org/forgejo/forgejo:15.0.8
     restart: unless-stopped
     environment:
       USER_UID: "1000"
