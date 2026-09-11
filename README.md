@@ -72,11 +72,12 @@ docker compose up -d --wait --wait-timeout 180 db forgejo
 Create the first administrator once, replacing the example email with yours:
 
 ```sh
-docker compose exec --user git forgejo forgejo --config /data/gitea/conf/app.ini admin user create --username admin --email you@example.com --admin --random-password --random-password-length 24 --must-change-password=true
+docker compose exec --user git forgejo forgejo --config /data/gitea/conf/app.ini admin user create --username forgejo-admin --email you@example.com --admin --random-password --random-password-length 24 --must-change-password=true
 ```
 
-Save the printed password in your password manager. The public web installer is
-disabled, so administrator creation uses the CLI.
+Save the printed password in your password manager. You can choose another
+username, but the literal name `admin` is reserved by Forgejo. The public web
+installer is disabled, so administrator creation uses the CLI.
 
 ### 3. Start HTTPS and sign in
 
@@ -129,10 +130,11 @@ pull request guidance, and [SECURITY.md](SECURITY.md) for private security repor
 python3 scripts/validate.py
 ```
 
-Static validation does not verify public DNS, certificate issuance, or Git
-operations. A live deployment was not tested in the initial authoring environment
-because no Docker daemon was available; run the documented verification on your
-server before relying on the installation.
+The container smoke test was verified on Ubuntu 24.04 (amd64) with Docker 29.8.0
+and Compose 5.5.1. Public Let's Encrypt HTTPS and authenticated SSH Git push/clone
+on port 22 were also verified on a deployed instance. Static validation does not
+verify those network operations; run the documented checks for your own server's
+DNS and firewall configuration.
 
 ## License
 
