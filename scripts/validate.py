@@ -5,8 +5,10 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from urllib.parse import unquote
 
 
@@ -24,18 +26,22 @@ def require(condition, message):
         raise ValueError(message)
 
 
-def render(values):
+def compose_environment(values=None):
     # Ignore deployment/Compose overrides inherited from the operator's shell.
     environment = {
         key: value for key, value in os.environ.items()
         if not key.startswith(("FORGEJO_", "POSTGRES_", "ACME_", "COMPOSE_"))
         and key != "DISABLE_REGISTRATION"
     }
-    environment.update(values)
+    environment.update(values or {})
+    return environment
+
+
+def render(values):
     return subprocess.run(
         ["docker", "compose", "--env-file", os.devnull, "-f", "compose.yaml",
          "--project-name", "forgejo-validation", "config", "--format", "json"],
-        cwd=ROOT, env=environment, capture_output=True, text=True, timeout=30,
+        cwd=ROOT, env=compose_environment(values), capture_output=True, text=True, timeout=30,
     )
 
 
@@ -145,7 +151,7 @@ def runner_configuration():
     result = subprocess.run(
         ["docker", "compose", "--env-file", os.devnull,
          "-f", "runner/compose.yaml", "config", "--format", "json"],
-        cwd=ROOT, capture_output=True, text=True, timeout=30,
+        cwd=ROOT, env=compose_environment(), capture_output=True, text=True, timeout=30,
     )
     require(result.returncode == 0, "Runner Compose validation failed: " + result.stderr)
     services = json.loads(result.stdout)["services"]
@@ -165,9 +171,47 @@ def runner_configuration():
     print("PASS: Optional runner ports, Docker isolation, and resource bounds")
 
 
+def standalone_runner():
+    # Model a runner VM with no Forgejo files, environment, or Docker resources.
+    with tempfile.TemporaryDirectory(prefix="forgejo-runner-validation-") as directory:
+        isolated = Path(directory).resolve()
+        shutil.copyfile(ROOT / "runner/compose.yaml", isolated / "compose.yaml")
+        result = subprocess.run(
+            ["docker", "compose", "--env-file", os.devnull,
+             "--project-name", "standalone-runner-check", "-f", "compose.yaml",
+             "config", "--format", "json"],
+            cwd=isolated, env=compose_environment(), capture_output=True,
+            text=True, timeout=30,
+        )
+        require(result.returncode == 0,
+                "Standalone runner requires server configuration: " + result.stderr)
+        config = json.loads(result.stdout)
+        services = config["services"]
+        require(set(services) == {"docker", "runner"},
+                "Standalone runner must not start the Forgejo server stack")
+        require(not config.get("secrets") and not config.get("configs"),
+                "Runner configuration must come from its local state directory")
+        for kind in ("volumes", "networks"):
+            for resource in config.get(kind, {}).values():
+                require(not resource.get("external")
+                        and resource["name"].startswith("standalone-runner-check_"),
+                        "Runner VM must create its own Docker networks and volumes")
+        for service in services.values():
+            require(not service.get("ports"), "Runner VM must not publish host ports")
+            require(set(service.get("depends_on", {})) <= set(services),
+                    "Runner VM must not depend on server services")
+            for mount in service.get("volumes", []):
+                if mount["type"] == "bind":
+                    require(Path(mount["source"]) == isolated / "state"
+                            and mount["target"] == "/data",
+                            "Runner VM may only bind its own private state directory")
+    print("PASS: Standalone runner needs no Forgejo files, environment, or shared resources")
+
+
 def main():
     configuration()
     runner_configuration()
+    standalone_runner()
     repository_files()
 
 

@@ -33,6 +33,11 @@ Python 3.9+ and Docker Compose v2.20+ are required for repository validation:
 python3 scripts/validate.py
 ```
 
+Validation also renders the runner from an isolated directory without the
+Forgejo stack or its environment, and checks that it needs no external Docker
+networks, shared server volumes, or published ports. When changing the runner,
+preserve both the same-host and [separate VM](docs/runner-vm.md) deployments.
+
 With a locally configured `.env`, also validate the expanded Compose and Caddy
 configuration:
 

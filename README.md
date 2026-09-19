@@ -14,6 +14,7 @@ This is an independent deployment template, not an official Forgejo project.
 - HTTP redirects to HTTPS; the application and database ports stay inside Docker.
 - Public registration and the web installer are disabled by default.
 - Explicit image versions and bounded container logs.
+- Optional Actions runners on the Forgejo host or a separate VM.
 - No external proxy service, database service, or paid certificate required.
 
 ```mermaid
@@ -116,8 +117,17 @@ shell. Its keys are separate from the HTTPS certificate.
 
 Image upgrades are manual; certificate renewal is automatic. An optional
 [Docker Actions runner](docs/actions-runner.md) is provided as a separate Compose
-project, with its own Docker engine and repository registration. SMTP and a
-scheduled off-server backup system are not included.
+project, with its own Docker engine and repository registration.
+
+| Deployment | Where services run | Setup |
+| --- | --- | --- |
+| One server | Forgejo, PostgreSQL, Caddy, and the optional runner share a host. | [Runner setup](docs/actions-runner.md) |
+| Separate runner VM | Forgejo, PostgreSQL, and Caddy stay on the Git server; the runner and its Docker engine run on another VM. | [Separate VM guide](docs/runner-vm.md) |
+
+Both options use the same `runner/compose.yaml`. A separate VM keeps build CPU,
+memory, and disk usage off the Git server and connects through its existing
+HTTPS endpoint. It needs no shared Docker network or published runner ports.
+SMTP and a scheduled off-server backup system are not included.
 
 See the [operations guide](docs/operations.md) for:
 

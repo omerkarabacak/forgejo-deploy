@@ -10,6 +10,8 @@ runner:
   fetch_interval: 5s
   env_file: ""
   labels:
+    # On a separate VM, add a unique label to test it before moving existing jobs.
+    # - runner-vm:docker://ghcr.io/catthehacker/ubuntu:act-24.04
     - ubuntu-latest:docker://ghcr.io/catthehacker/ubuntu:act-24.04
     - ubuntu-24.04:docker://ghcr.io/catthehacker/ubuntu:act-24.04
 
@@ -32,6 +34,7 @@ container:
 server:
   connections:
     forgejo:
+      # Use the real HTTPS hostname, reachable from this host and job containers.
       url: https://git.example.com/
       uuid: REPLACE_WITH_RUNNER_UUID
       token_url: file:/data/token

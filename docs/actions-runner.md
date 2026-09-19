@@ -5,18 +5,27 @@ It does not change the Forgejo web stack or publish any host ports. It uses
 Forgejo Runner 13.0.0 and Docker 29.8.0 in a dedicated Docker-in-Docker (DinD)
 container, with persistent Docker storage and a private Unix socket.
 
+Choose the Forgejo host for a compact deployment, or follow the
+[separate runner VM guide](runner-vm.md) to keep builds on another machine.
+The same Compose file supports both. Run all commands on the **runner host**,
+from its copy of this repository; the Forgejo server's `.env` is not required.
+
 Register it for a **single trusted repository**. Jobs can control the DinD engine
 and inspect data left by earlier jobs, but do not receive the Docker socket that
 manages Forgejo and PostgreSQL. DinD itself is privileged and shares the host
-kernel; this is not a VM security boundary. Use a separate machine for untrusted
-repositories or stronger isolation. One job runs at a time; the DinD container
-is limited to 3 CPUs and 5 GiB RAM. Allow additional memory for the runner and
-the Forgejo stack.
+kernel; this is not a VM security boundary. A separate VM isolates the runner
+host from the Git server, but jobs still share persistent runner storage. Keep
+this setup restricted to trusted workflows; see the
+[upstream security guidance](https://forgejo.org/docs/latest/admin/actions/security/)
+before accepting untrusted jobs. One job runs at a time; the DinD container is
+limited to 3 CPUs and 5 GiB RAM. Allow additional memory for the runner, host OS,
+and any other services on the same machine.
 
 ## Register and start
 
 1. In the target repository, open **Settings → Actions → Runners → Create new
-   runner**. Save its UUID and token privately.
+   runner**. Use a persistent runner (the default) for this daemon. Give each
+   runner VM its own registration and save its UUID and token privately.
 2. From the deployment directory, prepare the runner's configuration:
 
    ```sh
@@ -26,6 +35,8 @@ the Forgejo stack.
    ```
 
    Edit `runner/state/config.yml`: replace the example URL and runner UUID.
+   Use the Forgejo server's full HTTPS URL, such as `https://git.example.com/`,
+   reachable from this host and its job containers. Keep `insecure: false`.
    Store the runner token in `runner/state/token`, using a private editor or
    password manager. Do not place the token in shell history or the example
    file. Then set permissions for the runner's UID:

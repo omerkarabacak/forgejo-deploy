@@ -1,3 +1,5 @@
+# Standalone: run on the Forgejo host or a separate VM (docs/runner-vm.md).
+# Connect through the HTTPS URL in state/config.yml; no server .env is needed.
 name: forgejo-runner
 
 x-logging: &logging

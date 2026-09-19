@@ -83,6 +83,9 @@ their contents should require authorization.
 SMTP and Actions runners are separate configuration choices. Email delivery,
 including password reset mail, needs SMTP setup. CI jobs need a separately
 deployed and registered runner; this stack does not execute them on its own.
+The runner can share the Forgejo host or run on a
+[separate VM](runner-vm.md). Runner configuration, storage, and maintenance
+commands belong on whichever host runs it.
 
 ## Verify HTTPS and Git SSH
 
@@ -206,10 +209,16 @@ The template pins Forgejo **16.0.4**, a stable release supported until
 Review the [16.0 announcement](https://forgejo.org/2026-07-release-v16-0/)
 and [16.0.4 release notes](https://codeberg.org/forgejo/forgejo/src/branch/forgejo/release-notes-published/16.0.4.md).
 
-Let active Actions jobs finish, pause the runner, and flush the server queues:
+Let active Actions jobs finish, then stop each runner on its own host, from
+that host's copy of the deployment directory:
 
 ```sh
-docker compose -f runner/compose.yaml stop runner # If the optional runner is installed.
+docker compose -f runner/compose.yaml stop runner
+```
+
+On the **Forgejo host**, flush the server queues:
+
+```sh
 docker compose exec --user git forgejo forgejo --config /data/gitea/conf/app.ini manager flush-queues --timeout 5m
 ```
 
@@ -221,7 +230,12 @@ after updating its image tag:
 docker compose pull forgejo
 docker compose up -d --no-deps --wait --wait-timeout 180 forgejo
 docker compose exec --user git forgejo forgejo --config /data/gitea/conf/app.ini doctor check --all --log-file /tmp/forgejo-doctor.log
-docker compose -f runner/compose.yaml start runner # If installed and stopped above.
+```
+
+After verifying Forgejo, start each runner again on its own host:
+
+```sh
+docker compose -f runner/compose.yaml start runner
 ```
 
 The database migrates during startup. A rollback requires restoring the matching
