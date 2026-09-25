@@ -10,7 +10,7 @@ x-logging: &logging
 
 services:
   docker:
-    image: docker:29.8.0-dind
+    image: docker:29.8.1-dind
     restart: unless-stopped
     privileged: true
     command: ["dockerd", "--host=unix:///var/run/docker.sock", "--group=root"]
