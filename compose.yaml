@@ -8,7 +8,7 @@ x-logging: &default-logging
 
 services:
   caddy:
-    image: caddy:2.11.4-alpine
+    image: caddy:2.11.7-alpine
     restart: unless-stopped
     environment:
       FORGEJO_DOMAIN: ${FORGEJO_DOMAIN:?Set FORGEJO_DOMAIN in .env}
